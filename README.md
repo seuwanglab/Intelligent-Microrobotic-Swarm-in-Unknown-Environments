@@ -258,7 +258,3 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 ## Citation
 
 The citation will be available after publication.
- 
-## Contact
-
-For questions and collaborations, please contact [qqwang@seu.edu.cn](mailto:qqwang@seu.edu.cn).

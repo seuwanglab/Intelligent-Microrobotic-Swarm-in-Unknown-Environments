@@ -1,20 +1,32 @@
 # Intelligent Microrobotic Swarm in Unknown Environments
 
-This repository is related to an unpublished manuscript.
+This repository contains the code for an unpublished manuscript.
 
-This work presents a reinforcement learning-based approach for intelligent navigation of microrobotic swarms in unknown environments with dynamic obstacles. The system utilizes Proximal Policy Optimization (PPO) with Transformer architecture to train agents capable of autonomous exploration and navigation in complex, dynamic environments. The training framework supports both static and dynamic obstacle scenarios, making it suitable for real-world applications in microrobotics.
+This work presents a reinforcement learning-based approach for intelligent navigation of microrobotic swarms in unknown environments with dynamic obstacles. The system utilizes Proximal Policy Optimization (PPO) with a Transformer architecture to train agents capable of autonomous exploration and navigation in complex, dynamic environments. The training framework supports both static and dynamic obstacle scenarios, making it suitable for real-world applications in microrobotics.
 
 ## System Requirements
 
-For training and running the reinforcement learning models:
+### Training Environment
+For training the reinforcement learning models:
 
 - **Operating System**: Ubuntu 20.04 (recommended) or Windows 10+
 - **Python Environment**: Miniconda or Anaconda
 - **CUDA**: Version 12.2 (for GPU acceleration)
 - **Python**: 3.8+
+- **Development Environment**: Visual Studio Code
+
+### Deployment Environment
+For real-world deployment:
+
+- **Operating System**: Windows 11
+- **GPU**: NVIDIA GeForce RTX 4060 or equivalent
+- **Python Environment**: Miniconda
+- **LabVIEW**: Version 2019
+- **Development Environment**: Visual Studio Code
 
 ### Required Python Packages
 
+**Training Dependencies**:
 - PyTorch (with CUDA support)
 - Gymnasium 
 - NumPy
@@ -22,27 +34,43 @@ For training and running the reinforcement learning models:
 - TensorBoard
 - Pygame (for visualization)
 
+**Deployment Dependencies**:
+- OpenCV (cv2)
+- PyTorch (with CUDA support)
+- NumPy
+- Socket programming libraries
+- YOLOv5 dependencies
+
 ## Project Structure
 
 ```
-src/train/
-├── agent/                    # RL agent implementation
-│   ├── agent.py             # Main agent class
-│   ├── ppo.py               # PPO algorithm implementation
-│   └── transformer.py      # Transformer network architecture
-├── config/                  # Configuration files
-│   └── dynamic_obstacle.yaml # Training hyperparameters
-├── environment/             # Environment implementation
-│   ├── dynamic_obstacle_env.py # Main environment with dynamic obstacles
-│   └── env_wrapper.py       # Environment wrapper utilities
-├── utils/                   # Utility functions
-│   ├── buffer.py           # Experience buffer
-│   ├── worker.py           # Parallel worker implementation
-│   └── plugin.py           # Additional plugins
-├── models/                  # Pre-trained models
-├── logs/                    # Training logs and TensorBoard files
-├── main.py                  # Main training script
-└── register_env.py         # Environment registration
+src/
+├── train/                   # Training pipeline
+│   ├── agent/              # RL agent implementation
+│   │   ├── agent.py       # Main agent class
+│   │   ├── ppo.py         # PPO algorithm implementation
+│   │   └── transformer.py # Transformer network architecture
+│   ├── config/            # Configuration files
+│   │   └── dynamic_obstacle.yaml # Training hyperparameters
+│   ├── environment/       # Environment implementation
+│   │   ├── dynamic_obstacle_env.py # Main environment with dynamic obstacles
+│   │   └── env_wrapper.py # Environment wrapper utilities
+│   ├── utils/             # Utility functions
+│   │   ├── buffer.py     # Experience buffer
+│   │   ├── worker.py     # Parallel worker implementation
+│   │   └── plugin.py     # Additional plugins
+│   ├── models/            # Pre-trained models
+│   ├── logs/              # Training logs and TensorBoard files
+│   ├── main.py            # Main training script
+│   └── register_env.py    # Environment registration
+└── deploy/                 # Deployment pipeline
+    ├── inference.py        # Main inference and control script
+    ├── register_env.py     # Environment registration
+    ├── agent/              # Trained agent components
+    ├── config/             # Deployment configuration
+    ├── environment/        # Environment interfaces
+    ├── models/             # Pre-trained models (YOLOv5 + RL policy)
+    └── tool/               # Utility functions
 ```
 
 ## Training Configuration
@@ -55,7 +83,7 @@ The training uses the following key hyperparameters:
 - **Steps per Worker**: 1024
 - **Training Updates**: 4050
 - **Learning Rate**: 3e-4 → 5e-5 (scheduled)
-- **Environment**: Dynamic obstacle environment with static and moving obstacles
+- **Environment**: Dynamic obstacle environment with both static and moving obstacles
 
 ## Quick Start
 
@@ -117,7 +145,7 @@ The environment simulates a 2D space where:
   - Agent position, velocity, and dimensions
   - Target position and distance
   - Nearest obstacle information (position, size, velocity)
-- **Action Space**: 2D continuous control (speed and direction)
+- **Action Space**: 2D continuous control for speed and direction
 
 ### Key Features
 
@@ -174,9 +202,9 @@ env = DynamicObstacleEnvWrapper(render_mode='human')
 observation, info = env.reset()
 for _ in range(1000):
     action = env.action_space.sample()
-    observation, reward, done, info = env.step(action)
+    observation, reward, terminated, truncated, info = env.step(action)
     env.render()
-    if done:
+    if terminated or truncated:
         observation, info = env.reset()
 ```
 
@@ -188,26 +216,118 @@ Training results and performance metrics can be monitored through:
 2. **Model Checkpoints**: Saved models in `models/` directory  
 3. **Console Output**: Training statistics and episode information
 
+## Deployment and Real-World Implementation
+
+### Hardware System Overview
+
+The deployment system utilizes a sophisticated hardware setup for real-world microrobotic swarm control:
+
+**Three-Axis Helmholtz Coil System**: A three-axis Helmholtz coil system is used to globally actuate the swarm, which can generate a uniform magnetic field in any plane. This system comprises several key components:
+
+- **Observation Device**: Digital microscope with light source for video stream acquisition via USB interface
+- **Current Detection Device**: ACS712 current conversion chip, 5V DC power supply, and USB3202N I/O card
+- **Current Generation Device**: High-power DC power supply (CSP-3000-120), power amplifier (JSP-180-30), and NI MyRIO-1900 driver
+- **Host Control System**: Receives digital signals from I/O card and implements closed-loop control algorithms developed in LabVIEW 2019
+
+### Deployment Requirements
+
+**System Specifications**:
+- **Operating System**: Windows 11
+- **GPU**: NVIDIA GeForce RTX 4060 or equivalent
+- **Python Environment**: Miniconda
+- **LabVIEW**: Version 2019
+- **Development Environment**: Visual Studio Code
+
+**Additional Dependencies**:
+- OpenCV (for computer vision)
+- YOLOv5 (for object detection)
+- PyTorch with CUDA support
+- Socket programming libraries for UDP communication
+
+### YOLOv5 Setup
+
+The deployment system uses YOLOv5 for real-time object detection. To set up YOLOv5:
+
+```bash
+# Clone YOLOv5 repository
+git clone https://github.com/ultralytics/yolov5.git
+cd yolov5
+
+# Install requirements
+pip install -r requirements.txt
+
+# Update the model path in inference.py to your local YOLOv5 directory
+```
+
+**Note**: Update the YOLOv5 path in `src/deploy/inference.py` line 82 to match your local installation.
+
+### Deployment Structure
+
+```
+src/deploy/
+├── inference.py              # Main inference and control script
+├── register_env.py          # Environment registration
+├── agent/                   # Trained agent components
+│   ├── agent.py            # Agent implementation
+│   ├── ppo.py              # PPO policy network
+│   └── transformer.py     # Transformer architecture
+├── config/                 # Configuration files
+│   ├── dynamic_obstacle.yaml # Deployment parameters
+│   └── yaml_parser.py     # Configuration parser
+├── environment/            # Environment interfaces
+│   └── env_wrapper.py     # Environment wrapper
+├── models/                 # Pre-trained models
+│   ├── yolov5.pt          # YOLOv5 detection model
+│   └── Turbo.pt           # Trained RL policy model
+└── tool/                  # Utility functions
+    ├── buffer.py          # Data buffer management
+    ├── plugin.py          # Environment creation utilities
+    └── worker.py          # Parallel processing
+```
+
+### Running the Deployment System
+
+1. **Hardware Setup**: Ensure all hardware components are properly connected and LabVIEW control system is running.
+
+2. **Model Preparation**: Place your trained models in the `src/deploy/models/` directory:
+   - `yolov5.pt`: YOLOv5 detection model
+   - `Turbo.pt`: Trained RL policy model
+
+3. **Start Inference**: Navigate to the deployment directory and run:
+
+```bash
+cd src/deploy
+python inference.py
+```
+
+4. **System Operation**: The system will:
+   - Capture real-time video from the digital microscope
+   - Detect microrobotic swarms and obstacles using YOLOv5
+   - Generate control actions using the trained RL policy
+   - Send control commands via UDP to the LabVIEW control system
+   - Log attention data and system performance metrics
+
+
+## Acknowledgments
+
+We thank the YOLOv5 team for their excellent object detection framework, which forms a crucial component of our real-time detection system.
+
 ## Contributing
 
 This codebase supports research in:
 - Microrobotics navigation and control
-- Multi-agent reinforcement learning
+- Reinforcement learning for microrobots
 - Dynamic obstacle avoidance
 - Transformer-based policy networks
 
 ## License
 
-[Include your license information here]
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Citation
 
-If you use this code in your research, please cite our related manuscript:
-
-```
-[Citation will be added upon publication]
-```
-
+The citation will be available after publication.
+ 
 ## Contact
 
-For questions and collaborations, please contact [your contact information].
+For questions and collaborations, please contact [qqwang@seu.edu.cn].

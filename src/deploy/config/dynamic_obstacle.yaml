@@ -1,0 +1,33 @@
+environment:
+    type: 'DynamicObstacle'
+min_log_std: -10
+gamma: 0.995
+lamda: 0.95
+n_updates: 4050
+epochs: 3
+n_workers: 120
+worker_steps: 1024
+n_mini_batch: 16
+max_grad_norm: 1.0
+transformer:
+    n_blocks: 3
+    n_heads: 4
+    memory_length: 128
+    embedding_dim: 256
+    hidden_size: 1024
+    max_episode_steps: 512
+learning_rate_schedule:
+    start: 3e-4
+    end: 5e-5
+clip_range_schedule:
+    start: 2e-1
+    end: 5e-2
+value_loss_coef_schedule:
+    start: 5e-1
+    end: 5e-1
+entropy_coef_schedule:
+    start: 5e-3
+    end: 0
+kl_coef_schedule:
+    start: 0
+    end: 0.

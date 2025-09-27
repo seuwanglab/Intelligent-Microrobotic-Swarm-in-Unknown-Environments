@@ -19,7 +19,7 @@ For training the reinforcement learning models:
 For real-world deployment:
 
 - **Operating System**: Windows 11
-- **GPU**: NVIDIA GeForce RTX 4060 or equivalent
+- **GPU**: NVIDIA GeForce RTX 4060
 - **Python Environment**: Miniconda
 - **LabVIEW**: Version 2019
 - **Development Environment**: Visual Studio Code
@@ -102,11 +102,11 @@ The training uses the following key hyperparameters:
 
 ```bash
 # Create conda environment
-conda create -n microrobot python=3.8
-conda activate microrobot
+conda create -n microrobotic_swarm python=3.10 -y
+conda activate microrobotic_swarm
 
 # Install PyTorch with CUDA support
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
 
 # Install other dependencies
 pip install gymnasium numpy pyyaml tensorboard pygame
@@ -178,24 +178,6 @@ agent = Agent(config=config, model_id='Turbo', device='cuda')
 agent.train()
 ```
 
-### Environment Testing
-
-```python
-from environment.env_wrapper import DynamicObstacleEnvWrapper
-
-# Create environment
-env = DynamicObstacleEnvWrapper(render_mode='human')
-
-# Test random actions
-observation, info = env.reset()
-for _ in range(1000):
-    action = env.action_space.sample()
-    observation, reward, terminated, truncated, info = env.step(action)
-    env.render()
-    if terminated or truncated:
-        observation, info = env.reset()
-```
-
 ## Results and Performance
 
 Training results and performance metrics can be monitored through:
@@ -216,21 +198,6 @@ The deployment system utilizes a sophisticated hardware setup for real-world mic
 - **Current Detection Device**: ACS712 current conversion chip, 5V DC power supply, and USB3202N I/O card
 - **Current Generation Device**: High-power DC power supply (CSP-3000-120), power amplifier (JSP-180-30), and NI MyRIO-1900 driver
 - **Host Control System**: Receives digital signals from I/O card and implements closed-loop control algorithms developed in LabVIEW 2019
-
-### Deployment Requirements
-
-**System Specifications**:
-- **Operating System**: Windows 11
-- **GPU**: NVIDIA GeForce RTX 4060 or equivalent
-- **Python Environment**: Miniconda
-- **LabVIEW**: Version 2019
-- **Development Environment**: Visual Studio Code
-
-**Additional Dependencies**:
-- OpenCV (for computer vision)
-- YOLOv5 (for object detection)
-- PyTorch with CUDA support
-- Socket programming libraries for UDP communication
 
 ### YOLOv5 Setup
 

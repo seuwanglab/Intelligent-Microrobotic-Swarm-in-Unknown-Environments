@@ -67,10 +67,21 @@ src/
     ├── inference.py        # Main inference and control script
     ├── register_env.py     # Environment registration
     ├── agent/              # Trained agent components
+    │   ├── agent.py        # Agent implementation
+    │   ├── ppo.py          # PPO policy network
+    │   └── transformer.py # Transformer architecture
     ├── config/             # Deployment configuration
+    │   ├── dynamic_obstacle.yaml # Deployment parameters
+    │   └── yaml_parser.py # Configuration parser
     ├── environment/        # Environment interfaces
-    ├── models/             # Pre-trained models (YOLOv5 + RL policy)
+    │   └── env_wrapper.py # Environment wrapper
+    ├── models/             # Pre-trained models
+    │   ├── yolov5.pt      # YOLOv5 detection model
+    │   └── Turbo.pt       # Trained RL policy model
     └── tool/               # Utility functions
+        ├── buffer.py      # Data buffer management
+        ├── plugin.py      # Environment creation utilities
+        └── worker.py      # Parallel processing
 ```
 
 ## Training Configuration
@@ -238,30 +249,6 @@ pip install -r requirements.txt
 
 **Note**: Update the YOLOv5 path in `src/deploy/inference.py` line 82 to match your local installation.
 
-### Deployment Structure
-
-```
-src/deploy/
-├── inference.py              # Main inference and control script
-├── register_env.py          # Environment registration
-├── agent/                   # Trained agent components
-│   ├── agent.py            # Agent implementation
-│   ├── ppo.py              # PPO policy network
-│   └── transformer.py     # Transformer architecture
-├── config/                 # Configuration files
-│   ├── dynamic_obstacle.yaml # Deployment parameters
-│   └── yaml_parser.py     # Configuration parser
-├── environment/            # Environment interfaces
-│   └── env_wrapper.py     # Environment wrapper
-├── models/                 # Pre-trained models
-│   ├── yolov5.pt          # YOLOv5 detection model
-│   └── Turbo.pt           # Trained RL policy model
-└── tool/                  # Utility functions
-    ├── buffer.py          # Data buffer management
-    ├── plugin.py          # Environment creation utilities
-    └── worker.py          # Parallel processing
-```
-
 ### Running the Deployment System
 
 1. **Hardware Setup**: Ensure all hardware components are properly connected and LabVIEW control system is running.
@@ -293,7 +280,7 @@ We thank the YOLOv5 team for their excellent object detection framework, which f
 
 This codebase supports research in:
 - Microrobotics navigation and control
-- Reinforcement learning for microrobots
+- Reinforcement learning for microrobotic swarm
 - Dynamic obstacle avoidance
 - Transformer-based policy networks
 

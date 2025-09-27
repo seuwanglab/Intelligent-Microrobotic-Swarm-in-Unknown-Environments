@@ -9,10 +9,10 @@ This work presents a reinforcement learning-based approach for intelligent navig
 ### Training Environment
 For training the reinforcement learning models:
 
-- **Operating System**: Ubuntu 20.04 (recommended) or Windows 10+
+- **Operating System**: Ubuntu 20.04 (recommended) or Windows 11
 - **Python Environment**: Miniconda or Anaconda
-- **CUDA**: Version 12.2 (for GPU acceleration)
-- **Python**: 3.8+
+- **CUDA**: Version 12.2
+- **Python**: 3.10
 - **Development Environment**: Visual Studio Code
 
 ### Deployment Environment

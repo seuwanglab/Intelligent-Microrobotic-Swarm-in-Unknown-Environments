@@ -132,29 +132,6 @@ Then open your browser and navigate to `http://localhost:6006` to view:
 - Policy performance metrics
 - Network statistics
 
-## Environment Details
-
-### Dynamic Obstacle Environment
-
-The environment simulates a 2D space where:
-
-- **Agent**: Microrobotic swarm represented as an observation entity
-- **Obstacles**: Both static and dynamic obstacles with collision detection
-- **Goal**: Navigate to target positions while avoiding obstacles
-- **Observation Space**: 35-dimensional vector including:
-  - Agent position, velocity, and dimensions
-  - Target position and distance
-  - Nearest obstacle information (position, size, velocity)
-- **Action Space**: 2D continuous control for speed and direction
-
-### Key Features
-
-- **Dynamic Obstacles**: Moving obstacles with realistic physics
-- **Collision Detection**: Sophisticated overlap detection and avoidance
-- **Batch Obstacle Generation**: Efficient obstacle placement algorithms
-- **Configurable Scenarios**: Adjustable static/dynamic obstacle ratios
-- **Real-time Visualization**: Pygame-based rendering for training monitoring
-
 ## Model Architecture
 
 ### Transformer-based Policy Network
@@ -330,4 +307,4 @@ The citation will be available after publication.
  
 ## Contact
 
-For questions and collaborations, please contact [qqwang@seu.edu.cn].
+For questions and collaborations, please contact [qqwang@seu.edu.cn](mailto:qqwang@seu.edu.cn).

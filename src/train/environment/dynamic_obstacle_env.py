@@ -107,10 +107,9 @@ class DynamicObstacleEnvironment(gym.Env):
 
     def __init__(self, render_mode=None):
         super().__init__()
-        # Environmental size, 40:1 mm
         self.stay_steps = 0
-        self.width = self.height = 800  # 20mm
-        self.fps = 100  # 100 frames per second
+        self.width = self.height = 800
+        self.fps = 100
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         """
         action_{t-1}: last action
@@ -120,16 +119,14 @@ class DynamicObstacleEnvironment(gym.Env):
         target_pos[x, y]: target position
         (obstacle_pos[x, y] obstacle_size[w, h]) * 4: information of the 5 nearest obstacles
         """
-        self.observation_range = 400  # 10mm
+        self.observation_range = 400
         low = np.full(35, -np.inf, dtype=np.float32)
         high = np.full(35, np.inf, dtype=np.float32)
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
-        # Render Setting
         self.render_mode = render_mode
         self.window = None
         self.clock = None
-        # Environment Parameters
-        self.max_steps = 512  # 0.2s per step, 0.2 * 512 = 102.4s
+        self.max_steps = 512
         self.goal_degree = self.observation_r = self.region_stay_steps = 0
         self.total_grid = self.current_step = 0
         self.last_action = np.zeros(2, dtype=np.float32)
@@ -137,18 +134,14 @@ class DynamicObstacleEnvironment(gym.Env):
         self.observation_width = self.observation_height = 0
         self.observation_velocity = np.zeros(2, dtype=np.float32)
         self.initial_distance = self.last_distance = self.current_distance = 0
-        # Obstacle list
         self.static_obstacles = []
         self.moving_obstacles = []
-        # Observation rotating angle
         self.observation_angle = 0
-        # reward
         self.reward = 0
         self.at_goal = False
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        # Reset environment state
         self.observation_r = 0
         self.current_step = 0
         self.region_stay_steps = 0
@@ -156,24 +149,19 @@ class DynamicObstacleEnvironment(gym.Env):
         low = np.array([-np.inf] * 35, dtype=np.float32)
         high = np.array([np.inf] * 35, dtype=np.float32)
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
-        # Create observation
         self._generate_positions()
-        # Create obstacles
         self._generate_obstacles()
-        # Initial distance
         self.last_distance = self.current_distance = self.initial_distance = np.linalg.norm(
             self.observation_position - self.goal_position)
         self.goal_degree = np.arctan2(self.goal_position[1] - self.observation_position[1],
                                       self.goal_position[0] - self.observation_position[0])
         self.last_region_center = self.region_center = self.observation_position.copy()
         self.at_goal = False
-        # Initial observation angle
         self.observation_angle = 0
         observation_information, _ = self._get_observation()
         return observation_information, self._get_information()
 
     def _get_observation(self):
-        # 1. 构造基础观测（前10个数值）
         observation = np.array([
             self.last_action[0],
             self.last_action[1],
@@ -187,36 +175,27 @@ class DynamicObstacleEnvironment(gym.Env):
             self.goal_degree
         ], dtype=np.float32)
 
-        # 2. 将所有障碍物信息向量化
         all_obstacles = self.static_obstacles + self.moving_obstacles
         if len(all_obstacles) > 0:
-            # 提取[x, y, w, h]（假设每个障碍物都是一个字典）
             obs_array = np.array([[obs['x'], obs['y'], obs['w'], obs['h']] for obs in all_obstacles])
-            positions = obs_array[:, :2]  # 形状 (N,2)
-            # 计算每个障碍物到观察点的距离（利用广播机制）
+            positions = obs_array[:, :2]
             dists = np.linalg.norm(self.observation_position - positions, axis=1)
-            # 选择最近5个障碍物
             sorted_indices = np.argsort(dists)
             n_selected = min(5, len(sorted_indices))
             sorted_indices = sorted_indices[:n_selected]
             sorted_obstacles_all = [all_obstacles[i] for i in sorted_indices]
-            sorted_positions = positions[sorted_indices]  # 形状 (5,2)
-            sorted_ws = obs_array[sorted_indices, 2]  # 宽度
-            sorted_hs = obs_array[sorted_indices, 3]  # 高度
+            sorted_positions = positions[sorted_indices]
+            sorted_ws = obs_array[sorted_indices, 2]
+            sorted_hs = obs_array[sorted_indices, 3]
             sorted_dists = dists[sorted_indices]
-            # 计算障碍物相对观察位置的向量和角度
-            vectors = sorted_positions - self.observation_position  # (5,2)
+            vectors = sorted_positions - self.observation_position
             angles = np.arctan2(vectors[:, 1], vectors[:, 0])
-            # 生成噪声因子
             noise_distance = np.random.normal(1, 0.025, size=sorted_dists.shape)
             noise_angle = np.random.normal(1, 0.025, size=angles.shape)
             noise_w = np.random.normal(1, 0.025, size=sorted_ws.shape)
             noise_h = np.random.normal(1, 0.025, size=sorted_hs.shape)
-            # 判断是否在观测范围内
             in_range = sorted_dists <= (self.observation_range / 2)
-            # 构造障碍物特征矩阵，形状 (5,5)
             obs_features = np.zeros((5, 5), dtype=np.float32)
-            # 对于在范围内的障碍物，填入特征：
             obs_features[in_range, 0] = 1.0
             obs_features[in_range, 1] = sorted_dists[in_range] * noise_distance[in_range] / 40
             obs_features[in_range, 2] = angles[in_range] * noise_angle[in_range]
@@ -227,7 +206,6 @@ class DynamicObstacleEnvironment(gym.Env):
             sorted_obstacles = []
             obs_features = np.zeros((5, 5), dtype=np.float32)
 
-        # 3. 将障碍物特征展平后（共25个数值）拼接到最终观测向量上
         obstacles_in_range = obs_features.flatten()[:25]
         observation = np.concatenate([observation, obstacles_in_range])
         return observation, sorted_obstacles
@@ -279,21 +257,17 @@ class DynamicObstacleEnvironment(gym.Env):
         terminated = False
         self.current_step += 1
         self.observation_angle = (self.observation_angle + np.random.uniform(30, 60)) % 360
-        # 计算当前动作对应的速度和角度
-        speed = (action[0] + 1) / 2  # 将[-1,1]映射到[0,1]
-        angle = action[1] * np.pi  # 将[-1,1]映射到[-π, π]
+        speed = (action[0] + 1) / 2
+        angle = action[1] * np.pi
         vx = speed * np.cos(angle)
         vy = speed * np.sin(angle)
         self.observation_velocity = np.array([vx, vy]) * self.velocity_range * np.random.normal(1, 0.025)
-        # 更新位置
         self.observation_position += self.observation_velocity * 0.2
-        # 更新目标距离和角度
         self.current_distance = np.linalg.norm(self.observation_position - self.goal_position)
         distance_progress = self.last_distance - self.current_distance
         self.last_distance = self.current_distance
         self.goal_degree = np.arctan2(self.goal_position[1] - self.observation_position[1],
                                       self.goal_position[0] - self.observation_position[0])
-        # 计算能量消耗
         last_speed_norm = (self.last_action[0] + 1) / 2
         last_angle = self.last_action[1] * np.pi
         vx_last = last_speed_norm * np.cos(last_angle)
@@ -310,7 +284,6 @@ class DynamicObstacleEnvironment(gym.Env):
 
         observation_information, sorted_obstacles = self._get_observation()
 
-        # boundary
         distance_to_border_x = min(self.observation_position[0], self.width - self.observation_position[0])
         distance_to_border_y = min(self.observation_position[1], self.height - self.observation_position[1])
         boundary_distance = min(distance_to_border_x, distance_to_border_y)
@@ -323,7 +296,6 @@ class DynamicObstacleEnvironment(gym.Env):
         else:
             self.reward += (boundary_distance/safe_distance - 1)
 
-        # avoidance
         if not terminated:
             if sorted_obstacles:
                 if is_overlapping(observation_info, sorted_obstacles[0]):
@@ -354,7 +326,6 @@ class DynamicObstacleEnvironment(gym.Env):
             else:
                 self.reward += 0.5
 
-        # exploration
         if not terminated:
             if not self.at_goal:
                 region_threshold = 192
@@ -379,10 +350,8 @@ class DynamicObstacleEnvironment(gym.Env):
             else:
                 self.reward += 0.25
 
-            # 动作能量惩罚
             self.reward += -0.25 * energy
 
-            # 全局奖励
             if self.current_distance >= 30:
                 self.reward += (1 - self.current_distance / self.initial_distance)/3
                 if distance_progress >= 0:
@@ -415,7 +384,6 @@ class DynamicObstacleEnvironment(gym.Env):
         if self.clock is None:
             self.clock = pygame.time.Clock()
 
-        # 创建全局视图画布
         canvas_global = pygame.Surface((self.width, self.height))
         canvas_global.fill((255, 255, 255))
 
@@ -430,24 +398,20 @@ class DynamicObstacleEnvironment(gym.Env):
                     pygame.draw.rect(canvas, (173, 193, 207),
                                      pygame.Rect(x - w / 2, y - h / 2, w, h))
 
-        # 绘制静态与动态障碍物
         draw_obstacles(canvas_global, self.static_obstacles)
         draw_obstacles(canvas_global, self.moving_obstacles)
 
-        # 绘制目标
         target_surface = pygame.Surface((self.observation_width, self.observation_height), pygame.SRCALPHA)
         pygame.draw.ellipse(target_surface, (100, 100, 100), target_surface.get_rect())
         rotated_target = pygame.transform.rotate(target_surface, self.observation_angle)
         target_rect = rotated_target.get_rect(center=self.observation_position.astype(int))
         canvas_global.blit(rotated_target, target_rect.topleft)
 
-        # 记录并绘制轨迹
         if self.record_trajectory:
             self.trajectory_points.append(self.observation_position.astype(int))
             if len(self.trajectory_points) > 1:
                 pygame.draw.lines(canvas_global, (0, 255, 0), False, self.trajectory_points, 2)
 
-        # 全局视图中使用50%透明黑色遮罩
         mask = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         mask.fill((0, 0, 0, 128))
         pygame.draw.circle(mask, (0, 0, 0, 0),
@@ -475,49 +439,38 @@ class DynamicObstacleEnvironment(gym.Env):
         if len(points) > 1:
             pygame.draw.lines(canvas_global, (255, 165, 0), False, points, 2)
 
-        # ---------------------------
-        # 构造局部观测视图
         local_view_size = int(self.observation_range)
         obs_center = self.observation_position.astype(int)
 
-        # 新建局部视图画布，填充为黑色（未观测区域为黑色）
         local_view = pygame.Surface((local_view_size, local_view_size))
         local_view.fill((0, 0, 0))
 
-        # 计算全局画布中提取区域的左上角坐标
         extract_x = max(0, obs_center[0] - local_view_size // 2)
         extract_y = max(0, obs_center[1] - local_view_size // 2)
         extract_width = min(local_view_size, self.width - extract_x)
         extract_height = min(local_view_size, self.height - extract_y)
 
         extract_area = pygame.Rect(extract_x, extract_y, extract_width, extract_height)
-        # 在局部视图中放置提取区域的位置
         local_pos_x = max(0, local_view_size // 2 - (obs_center[0] - extract_x))
         local_pos_y = max(0, local_view_size // 2 - (obs_center[1] - extract_y))
 
         local_view.blit(canvas_global.subsurface(extract_area), (local_pos_x, local_pos_y))
 
-        # 绘制全局实际边界在局部视图中的投影：用橙色标出实际提取区域
         observed_rect = pygame.Rect(local_pos_x, local_pos_y, extract_width, extract_height)
         pygame.draw.rect(local_view, (255, 165, 0), observed_rect, 4)
-        # ---------------------------
-        # 按比例缩放局部视图使高度与全局视图一致
         scale_factor = self.height / local_view_size
         local_view_scaled = pygame.transform.scale(local_view,
                                                    (int(local_view_size * scale_factor),
                                                     int(local_view_size * scale_factor)))
 
-        # 处理退出事件
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.close()
                 exit()
 
-        # 全局视图放在左侧，局部观测视图放在右侧
         self.window.blit(canvas_global, (0, 0))
         self.window.blit(local_view_scaled, (self.width, 0))
 
-        # 在两部分中间添加分割线
         pygame.draw.line(self.window, (0, 0, 0), (self.width, 0), (self.width, self.height), 5)
 
         pygame.display.flip()
@@ -527,7 +480,6 @@ class DynamicObstacleEnvironment(gym.Env):
     def _generate_obstacles(self):
         avoid_points = [self.observation_position, self.goal_position]
         scenario = np.random.rand()
-        # 根据 observation_width 决定障碍物总数
         if self.observation_width <= 35:
             total_obstacles = np.random.randint(18, 23)
         elif self.observation_width <= 40:
@@ -536,7 +488,6 @@ class DynamicObstacleEnvironment(gym.Env):
             total_obstacles = np.random.randint(14, 19)
         else:
             total_obstacles = np.random.randint(12, 17)
-        # 根据 scenario 划分静态与动态障碍物
         if scenario < 0.1:
             num_static = total_obstacles
             num_moving = 0
@@ -547,13 +498,11 @@ class DynamicObstacleEnvironment(gym.Env):
             factor = np.random.uniform(0.1, 0.9)
             num_moving = int(np.round(total_obstacles * factor))
             num_static = total_obstacles - num_moving
-        # 生成静态障碍物：采用批量生成候选项
         self.static_obstacles = []
         static_attempts = 0
         max_static_attempts = num_static * 20
-        batch_size = 10  # 每批生成10个候选项
+        batch_size = 10
         while len(self.static_obstacles) < num_static and static_attempts < max_static_attempts:
-            # 批量生成候选参数
             candidate_count = batch_size
             w_candidates = np.random.randint(40, 80, size=candidate_count, dtype=np.int16)
             h_candidates = np.clip((w_candidates * np.random.uniform(0.75, 1.25, size=candidate_count)).astype(np.int16),
@@ -571,17 +520,14 @@ class DynamicObstacleEnvironment(gym.Env):
                     'r': float(r_candidates[i]),
                     'shape': int(shapes[i])
                 }
-                # 使用较小区域来判断重叠
                 new_obstacle_comp = {
                     'x': new_obstacle['x'],
                     'y': new_obstacle['y'],
                     'w': new_obstacle['w'] * 0.25,
                     'h': new_obstacle['h'] * 0.25
                 }
-                # 如果离目标和观测点太近，则跳过
                 if is_too_close(new_obstacle, avoid_points, min_distance=150):
                     continue
-                # 检查与已添加的静态障碍物是否重叠
                 overlap = False
                 for obs in self.static_obstacles:
                     if is_overlapping(new_obstacle_comp, obs):
@@ -592,7 +538,6 @@ class DynamicObstacleEnvironment(gym.Env):
                     if len(self.static_obstacles) >= num_static:
                         break
             static_attempts += candidate_count
-        # 生成动态障碍物：同样采用批量生成候选项
         self.moving_obstacles = []
         moving_attempts = 0
         max_moving_attempts = num_moving * 20
@@ -602,7 +547,6 @@ class DynamicObstacleEnvironment(gym.Env):
             h_candidates = np.clip((w_candidates * np.random.uniform(0.75, 1.25, size=candidate_count)).astype(np.int16),
                                    35, 70)
             r_candidates = np.maximum(w_candidates, h_candidates) * 0.65
-            # 保证动态障碍物完全位于区域内
             x_candidates = np.random.randint(w_candidates, self.width - w_candidates, size=candidate_count)
             y_candidates = np.random.randint(h_candidates, self.height - h_candidates, size=candidate_count)
             vx_candidates = np.random.uniform(-14, 14, size=candidate_count)
@@ -619,13 +563,11 @@ class DynamicObstacleEnvironment(gym.Env):
                     'vy': float(vy_candidates[i]),
                     'shape': int(shapes[i])
                 }
-                # 检查与所有已生成障碍物（静态和动态）是否重叠
                 overlap = False
                 for obs in self.static_obstacles + self.moving_obstacles:
                     if is_overlapping(new_obstacle, obs):
                         overlap = True
                         break
-                # 检查与关键点（观测点、目标）的距离
                 if is_too_close(new_obstacle, avoid_points, min_distance=120):
                     overlap = True
                 if not overlap:
@@ -640,7 +582,6 @@ class DynamicObstacleEnvironment(gym.Env):
         self.observation_r = max(self.observation_width, self.observation_height) * 0.65
         self.velocity_range = np.clip(20 * np.random.normal(1, 0.1), 17.5, 22.5)
         self.observation_velocity = np.zeros(2)
-        # 划分区域为四个象限
         quadrants = [
             (0, self.width / 2, 0, self.height / 2),
             (self.width / 2, self.width, 0, self.height / 2),
@@ -648,7 +589,6 @@ class DynamicObstacleEnvironment(gym.Env):
             (self.width / 2, self.width, self.height / 2, self.height)
         ]
         observation_quadrant = random.choice(quadrants)
-        # 根据象限选择观测点位置
         if observation_quadrant[1] <= 401 and observation_quadrant[3] <= 401:
             self.observation_position = np.array([
                 np.random.uniform(observation_quadrant[0] + 75, observation_quadrant[0] + 225),
@@ -669,7 +609,6 @@ class DynamicObstacleEnvironment(gym.Env):
                 np.random.uniform(observation_quadrant[1] - 225, observation_quadrant[1] - 75),
                 np.random.uniform(observation_quadrant[3] - 225, observation_quadrant[3] - 75)
             ])
-        # 在非观测象限中选择目标点，并保证目标距离足够远
         available_quadrants = [q for q in quadrants if q != observation_quadrant]
         attempt = 0
         max_attempts = 1000

@@ -58,11 +58,11 @@ if __name__ == "__main__":
     import numpy as np
     env = DynamicObstacleEnvWrapper(render_mode='human')
     observation = env.reset()
-    print(f'初始观测 : {observation}')
-    print(f'观测空间 : {env.observation_space}')
+    print(f'Initial observation : {observation}')
+    print(f'Observation space : {env.observation_space}')
     print(env.action_space.shape)
-    print(f'动作空间 : {env.action_space}')
-    print(f'最大回合步数 : {env.max_episode_steps}')
+    print(f'Action space : {env.action_space}')
+    print(f'Max episode steps : {env.max_episode_steps}')
 
     done = False
     info = None
@@ -75,12 +75,12 @@ if __name__ == "__main__":
         next_observation, reward, done, info = env.step(action)
         step_count += 1
 
-        print(f'步骤 {step_count}:')
-        print(f'  动作 : {action}')
-        print(f'  观测 : {next_observation}')
-        print(f'  奖励 : {reward}')
+        print(f'Step {step_count}:')
+        print(f'  Action : {action}')
+        print(f'  Observation : {next_observation}')
+        print(f'  Reward : {reward}')
         if info:
-            print(f'  回合信息: {info}')
+            print(f'  Episode info: {info}')
 
         env.render()
     env.close()

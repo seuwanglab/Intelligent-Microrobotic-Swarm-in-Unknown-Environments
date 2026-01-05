@@ -42,25 +42,22 @@ for head_idx, head_df in enumerate(head_dfs):
             memory_step = step - i
             key_idx = available_steps - 1 - i
             key_col = f'Key {key_idx}'
-            weight = float(current_attention[key_col])  # <- 不做平均!!!
+            weight = float(current_attention[key_col])
             obs_row_df = obs_df[obs_df['step'] == memory_step]
             if obs_row_df.empty:
                 continue
             obs_row = obs_row_df.iloc[0]
-            # agent
             pos_x = int(float(obs_row['obs_x']))
             pos_y = int(float(obs_row['obs_y']))
             pos_w = int(float(obs_row['obs_w']))
             pos_h = int(float(obs_row['obs_h']))
             pos_r = max(pos_w, pos_h) / 2.0
-            # target
             target_x = int(float(obs_row['target_x']))
             target_y = int(float(obs_row['target_y']))
             obs_rx = pos_r
             obs_ry = pos_r
             target_rx = 10
             target_ry = 10
-            # agent区域
             obs_x_min = max(0, int(pos_x - obs_rx))
             obs_x_max = min(canvas_size[0] - 1, int(pos_x + obs_rx))
             obs_y_min = max(0, int(pos_y - obs_ry))
@@ -75,7 +72,6 @@ for head_idx, head_df in enumerate(head_dfs):
             obs_contrib = np.exp(-0.5 * (dist_obs / obs_rx) ** 2) * weight
             obs_grid[obs_y_min:obs_y_max + 1, obs_x_min:obs_x_max + 1] += obs_contrib * mask_obs
 
-            # target区域
             target_x_min = max(0, int(target_x - target_rx))
             target_x_max = min(canvas_size[0] - 1, int(target_x + target_rx))
             target_y_min = max(0, int(target_y - target_ry))
@@ -90,7 +86,6 @@ for head_idx, head_df in enumerate(head_dfs):
             target_contrib = np.exp(-0.5 * (dist_target / target_rx) ** 2) * weight
             target_grid[target_y_min:target_y_max + 1, target_x_min:target_x_max + 1] += target_contrib * mask_target
 
-            # 遍历障碍物
             for obst_idx in range(1, 6):
                 obst_x = float(obs_row.get(f'obst{obst_idx}_x', 0))
                 obst_y = float(obs_row.get(f'obst{obst_idx}_y', 0))
@@ -105,9 +100,9 @@ for head_idx, head_df in enumerate(head_dfs):
                 x_max = min(canvas_size[0] - 1, int(obst_x + rx))
                 y_min = max(0, int(obst_y - ry))
                 y_max = min(canvas_size[1] - 1, int(obst_y + ry))
-                if obst_shape <= 0.5:  # 矩形
+                if obst_shape <= 0.5:
                     obst_grid[y_min:y_max + 1, x_min:x_max + 1] += weight
-                else:  # 椭圆
+                else:
                     x_range = np.arange(x_min, x_max + 1)
                     y_range = np.arange(y_min, y_max + 1)
                     X_obst, Y_obst = np.meshgrid(x_range, y_range)
@@ -116,13 +111,11 @@ for head_idx, head_df in enumerate(head_dfs):
                     mask_obst = ((dx_obst / rx) ** 2 + (dy_obst / ry) ** 2) <= 1
                     obst_grid[y_min:y_max + 1, x_min:x_max + 1] += weight * mask_obst
 
-                    # 平滑和合成
         smooth_obs_grid = gaussian_filter(obs_grid, sigma=5)
         smooth_target_grid = gaussian_filter(target_grid, sigma=5)
         integrate_grid = smooth_obs_grid + obst_grid + smooth_target_grid
         integrate_grid[integrate_grid > 1] = 1
 
-        # 可视化
         fig, ax = plt.subplots(figsize=(16, 16))
         ax.set_xlim(0, canvas_size[0])
         ax.set_ylim(0, canvas_size[1])
@@ -132,7 +125,6 @@ for head_idx, head_df in enumerate(head_dfs):
             spine.set_visible(False)
         ax.set_xticks([])
         ax.set_yticks([])
-        # 输出文件名区分head
         save_path = os.path.join(head_output_dir, f'step{step:04d}_head{head_idx}.png')
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
@@ -142,7 +134,6 @@ for head_idx, head_df in enumerate(head_dfs):
         else:
             print(f"Warning: Could not read image {save_path}")
 
-            # 为每个head输出mp4
     video_path = os.path.join(output_dir, f'B0_head{head_idx}.mp4')
     if img_array:
         height, width, _ = img_array[0].shape

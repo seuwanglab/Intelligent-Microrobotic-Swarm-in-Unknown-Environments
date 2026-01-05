@@ -19,7 +19,6 @@ from agent.transformer import TransformerBlock
 
 def save_attention_to_csv(block_attention, num_blocks, num_heads, output_dir):
     os.makedirs(output_dir, exist_ok=True)
-    # Save only once per run, so overwrite previous files
     for block_idx in range(num_blocks):
         for head_idx in range(num_heads):
             data = np.array(block_attention[block_idx][head_idx])
@@ -38,15 +37,11 @@ def init_memory(config, max_episode_steps, device):
     Initialize memory, mask, and indices required for the transformer module
     """
     mem_len = config['memory_length']
-    # Lower triangular matrix as mask
     memory_mask = torch.tril(torch.ones((mem_len, mem_len)))
     memory = torch.zeros((1, max_episode_steps, config['n_blocks'], config['embedding_dim'])).to(device)
-    # repetitions shape: (memory_length-1, memory_length)
     repetitions = torch.repeat_interleave(torch.arange(0, mem_len).unsqueeze(0),
                                           mem_len - 1, dim=0).long()
-    # Generate continuous memory indices
     memory_indices = torch.stack([torch.arange(i, i + mem_len) for i in range(max_episode_steps - mem_len + 1)]).long()
-    # Merge repetitions and memory_indices into complete index matrix, ensuring total length is max_episode_steps
     memory_indices = torch.cat((repetitions, memory_indices))
     return memory, memory_mask, memory_indices
 
@@ -60,7 +55,7 @@ def transfer_dict_to_tensor(info):
     Convert information from info dictionary to tensor
     Note: Uses global variables last_action_0, last_action_1
     """
-    global last_action_0, last_action_1  # Explicitly declare global variables
+    global last_action_0, last_action_1
     observation_position = np.array([float(info['observation_x']), float(info['observation_y'])])
     target_position = np.array([float(info['target_x']), float(info['target_y'])])
     target_obs_vector = target_position - observation_position
@@ -78,7 +73,6 @@ def transfer_dict_to_tensor(info):
         target_obs_distance / 40,
         target_obs_angle
     ]
-    # Add obstacle data, sorted by distance
     obstacles = sorted(
         info['obstacles'],
         key=lambda obs: np.sqrt((float(obs['x']) - float(info['observation_x'])) ** 2 +
@@ -98,10 +92,9 @@ def transfer_dict_to_tensor(info):
                 float(obs['w']) / 40,
                 float(obs['h']) / 40
             ]
-    # Ensure data length is 35, pad with 0 if insufficient
     while len(data) < 35:
         data.append(0.0)
-    tensor = torch.tensor(data, dtype=torch.float32).unsqueeze(0)  # shape [1, 35]
+    tensor = torch.tensor(data, dtype=torch.float32).unsqueeze(0)
     print(tensor)
     tensor = tensor.to('cuda' if torch.cuda.is_available() else 'cpu')
     return tensor
@@ -110,7 +103,6 @@ def transfer_dict_to_tensor(info):
 class YOLOv5DetectionModule:
     def __init__(self, model_path, device='cuda'):
         self.device = device
-        # Load YOLOv5 model locally
         self.yolo_v5 = torch.hub.load('C:/Users/1/Desktop/NMI/opencv/yolov5', 'custom',
                                       path=model_path, source='local')
         self.yolo_v5.eval()
@@ -138,7 +130,6 @@ class YOLOv5DetectionModule:
 
         self.csv_file = './attention_csv/observation_info.csv'
         self.initialize_csv()
-        # Variables to save the last frame for saving images when the program ends
         self.last_display_frame1 = None
         self.last_display_frame2 = None
 
@@ -226,13 +217,13 @@ class YOLOv5DetectionModule:
         detections = results.pandas().xyxy[0]
 
         class1_info = None
-        max_area = 0  # Store maximum area
+        max_area = 0
         for _, row in detections.iterrows():
             if int(row['class']) == 1 and float(row['confidence']) > 0.5:
                 xmin, ymin, xmax, ymax = map(int, row[['xmin', 'ymin', 'xmax', 'ymax']].values)
                 w = xmax - xmin
                 h = ymax - ymin
-                area = w * h  # Calculate area
+                area = w * h
                 if area > max_area:
                     max_area = area
                     center_x = xmin + w / 2
@@ -241,7 +232,6 @@ class YOLOv5DetectionModule:
                     self.obs_y = center_y
                     class1_info = {'x': center_x, 'y': center_y, 'w': w, 'h': h}
 
-        # If class1 is not found, use previous frame information and set velocity to 0
         if class1_info is None:
             class1_info = self.prev_class1_info.copy()
             vx, vy = 0, 0
@@ -251,7 +241,6 @@ class YOLOv5DetectionModule:
             self.prev_class1_info = class1_info.copy()
             vx, vy = self.calculate_velocity()
 
-        # Collect all class0 detection results and filter obstacles closest to class1
         obstacles_near_class1 = []
         if class1_info:
             for _, row in detections.iterrows():
@@ -272,7 +261,6 @@ class YOLOv5DetectionModule:
                                 'h': h
                             })
 
-        # Ensure obstacle data always has 5 entries, pad with 0 if insufficient
         while len(obstacles_near_class1) < 5:
             obstacles_near_class1.append({'state': 0, 'x': 0, 'y': 0, 'w': 0, 'h': 0})
         obstacles_near_class1 = obstacles_near_class1[:5]
@@ -293,7 +281,6 @@ class YOLOv5DetectionModule:
             masked_frame = np.zeros_like(frame, dtype=np.uint8)
             masked_frame[visible_mask] = frame[visible_mask]
 
-            # Convert to RGB before passing to detection model
         img_rgb = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2RGB)
 
         with torch.no_grad():
@@ -339,10 +326,8 @@ class YOLOv5DetectionModule:
             xmin, ymin, xmax, ymax = max_area_bbox
             cv2.rectangle(masked_frame, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
 
-        # **⚠️ Draw target position markers after YOLO detection**
         
 
-        # Draw arrow on independent arrow layer to ensure it doesn't participate in detection
         arrow_layer = np.zeros_like(frame, dtype=np.uint8)
         arrow_center = (740, 60)
         arrow_size = 30
@@ -352,7 +337,6 @@ class YOLOv5DetectionModule:
         self.draw_dashed_circle(masked_frame, (self.target_x, self.target_y), 50, (150, 36, 63), 3)
         angle = np.degrees(np.arctan2(-dy, dx))
 
-        # Calculate arrow vertex coordinates
         tip = (arrow_center[0] + arrow_size * np.cos(np.radians(angle)),
                arrow_center[1] - arrow_size * np.sin(np.radians(angle)))
         left = (arrow_center[0] - arrow_size * np.cos(np.radians(angle - 40)),
@@ -364,11 +348,9 @@ class YOLOv5DetectionModule:
 
         arrow_points = np.array([tip, left, base, right], dtype=np.int32)
 
-        # Fill arrow shape
         cv2.fillPoly(arrow_layer, [arrow_points], color=(255, 165, 0))
         cv2.polylines(arrow_layer, [arrow_points], isClosed=True, color=(255, 165, 0), thickness=1)
 
-        # **Final composition: arrow layer + masked area**
         final_frame = arrow_layer.copy()
         final_frame[visible_mask] = masked_frame[visible_mask]
 
@@ -388,7 +370,6 @@ class YOLOv5DetectionModule:
             print("Cannot open camera")
             return
 
-        # Video recording settings
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
         out1 = cv2.VideoWriter('output_cv1.avi', fourcc, 20.0, (800, 600))
         out2 = cv2.VideoWriter('output_cv2.avi', fourcc, 20.0, (800, 600))
@@ -407,20 +388,15 @@ class YOLOv5DetectionModule:
             display_frame1 = frame.copy()
             display_frame2 = frame.copy()
 
-            # Process first frame: detect target and obstacles
             class1_info, obstacles_near_class1, vx, vy = self.process_frame1(display_frame1)
 
-            # Determine observation center based on target information
             observation_center = (int(class1_info['x']), int(class1_info['y'])) if class1_info else None
 
-            # Process second frame: masked detection
             display_frame2 = self.process_frame2(display_frame2, observation_center)
 
-            # Save current processed frames for saving images when program exits
             self.last_display_frame1 = display_frame1.copy()
             self.last_display_frame2 = display_frame2.copy()
 
-            # Calculate and record data once per second
             if current_time - self.last_stats_time >= 1:
                 self.last_stats_time = current_time
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -446,11 +422,9 @@ class YOLOv5DetectionModule:
                     data_callback(info)
                 self.data_to_csv(info)
 
-            # Save video frames
             out1.write(display_frame1)
             out2.write(display_frame2)
 
-            # Display windows
             cv2.imshow("CV1 - Global View", display_frame1)
             cv2.imshow("CV2 - Partial View", display_frame2)
 
@@ -468,20 +442,17 @@ class YOLOv5DetectionModule:
 
 
 if __name__ == "__main__":
-    # Declare global variables for sharing latest action information across functions
     global last_action_0, last_action_1
     last_action_0 = 0
     last_action_1 = 0
     start_time = time.time()
 
-    # Create UDP Socket for sending action commands
     s_pattern = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s_pattern.bind(('127.0.0.1', 61556))
     s_pattern.settimeout(1)
     print('Bind UDP on 61556...')
 
 
-    # Define Ctrl+C exit handler function
     def client_exit(num, frame):
         print("Exit data collection")
         s_pattern.close()
@@ -510,7 +481,7 @@ if __name__ == "__main__":
 
     memory, memory_mask, memory_indices = init_memory(config['transformer'], 2048, device)
     memory_length = config['transformer']['memory_length']
-    t = 0  # Current time step
+    t = 0
     direction_angle = 0.
     pitch_angle = 0.
 
@@ -519,15 +490,13 @@ if __name__ == "__main__":
     block_attention = {block_idx: {head_idx: [] for head_idx in range(num_heads)}
                        for block_idx in range(num_blocks)}
 
-    # Start detection thread
     detection_thread = Thread(target=yolo_detection.detection_state, args=(data_handler,))
     detection_thread.start()
     last_print_time = time.time()
 
     try:
-        last_print_time = time.time()  # Last print time
+        last_print_time = time.time()
         while True:
-            # Send action commands to corresponding ports
             a_angle = str(direction_angle).encode('utf-8')
             p_pitch_angle = str(pitch_angle).encode('utf-8')
             s_pattern.sendto(a_angle, ('127.0.0.1', 61557))
@@ -535,13 +504,11 @@ if __name__ == "__main__":
 
             latest_info = yolo_detection.get_latest_info()
             current_time = time.time()
-            # Wait for a certain time before starting model inference to avoid premature processing
             if latest_info and current_time - last_print_time >= 1 and current_time - start_time >= 10:
                 last_print_time = current_time
 
                 observation = transfer_dict_to_tensor(latest_info)
                 print(observation)
-                # Ensure t is within memory_indices range
                 if t >= memory_indices.shape[0]:
                     t = memory_indices.shape[0] - 1
                 in_memory = memory[0, memory_indices[t].unsqueeze(0)]
@@ -549,7 +516,6 @@ if __name__ == "__main__":
                 mask = memory_mask[t_].unsqueeze(0).bool()
                 indices = memory_indices[t].unsqueeze(0)
                 model_start_time = time.time()
-                # Model inference
                 policy, value, new_memory, attention = model(observation, in_memory, indices, mask)
                 attention_np = attention.detach().cpu().numpy()
                 mask_np = mask.cpu().numpy().squeeze()
@@ -565,7 +531,6 @@ if __name__ == "__main__":
                 memory[:, t] = new_memory
                 t += 1
 
-                # Calculate action based on policy output, assuming policy contains mean attribute
                 mean = policy.mean
                 action = torch.tanh(mean)
                 action = action.detach().cpu().numpy()[0]
@@ -581,20 +546,17 @@ if __name__ == "__main__":
                     f.write(f"{formatted_time} {np.linalg.norm(action):.2f} {direction_angle:.2f} "
                             f"Model_inference_time: {model_inference_time:.2f} ms\n")
 
-            # Check if 'q' key is pressed to exit
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 print("Exit and save attention data")
                 break
 
     except KeyboardInterrupt:
         print("Program interrupted, saving attention data")
-        # Save attention data when program is interrupted
         output_dir = './attention_csv'
         save_attention_to_csv(block_attention, num_blocks, num_heads, output_dir)
         detection_thread.join()
 
     finally:
-        # Save attention data when program exits
         print("Program ended, saving attention data")
         output_dir = './attention_csv'
         save_attention_to_csv(block_attention, num_blocks, num_heads, output_dir)

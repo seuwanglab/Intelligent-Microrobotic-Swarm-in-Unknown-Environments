@@ -1,5 +1,3 @@
-import time
-
 import torch
 from torch import nn
 
@@ -142,7 +140,6 @@ class Transformer(nn.Module):
         valid_positions = index.squeeze(1)[valid_indices_mask]
 
         out_memories = []
-        attention_list = []
         for i, block in enumerate(self.transformer_blocks):
             out_memories.append(h.detach())
             memory = memories[:, :, i]
@@ -154,9 +151,8 @@ class Transformer(nn.Module):
                 _memory[invalid_batch, -1] = h.squeeze(1)[invalid_batch]
             memory = _memory
             h, attention_weights = block(h.unsqueeze(1), memory, _index, memory_indices, mask)
-            attention_list.append(attention_weights)
 
             h = h.squeeze()
             if len(h.shape) == 1:
                 h = h.unsqueeze(0)
-        return h, torch.stack(out_memories, dim=1), torch.stack(attention_list, dim=1)
+        return h, torch.stack(out_memories, dim=1)

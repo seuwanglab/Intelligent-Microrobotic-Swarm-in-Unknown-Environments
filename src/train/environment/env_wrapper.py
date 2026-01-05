@@ -5,10 +5,15 @@ import register_env
 
 
 class DynamicObstacleEnvWrapper:
-    def __init__(self, render_mode=None):
-        self._env = gym.make('DynamicObstacleEnv-v0', render_mode=render_mode) \
-            if render_mode else gym.make('DynamicObstacleEnv-v0')
-        self.max_episode_steps = self._env.spec.max_episode_steps
+    def __init__(self, render_mode=None, env_id='DynamicObstacleEnv-v0'):
+        if env_id == 'DynamicObstacleEnvEva-v0':
+            from .dynamic_obstacle_env_eva import DynamicObstacleEnvironment
+
+            self._env = DynamicObstacleEnvironment(render_mode=render_mode)
+            self.max_episode_steps = getattr(self._env, "max_steps", 512)
+        else:
+            self._env = gym.make(env_id, render_mode=render_mode) if render_mode else gym.make(env_id)
+            self.max_episode_steps = self._env.spec.max_episode_steps
 
     @property
     def observation_space(self):
@@ -21,22 +26,29 @@ class DynamicObstacleEnvWrapper:
     def get_max_episode_steps(self):
         return self.max_episode_steps
 
-    def reset(self):
+    def reset(self, seed=None):
         self._reward = []
-        _observation, _info_vector = self._env.reset()
-        return _observation, _info_vector
+        _observation, _ = self._env.reset(seed=seed)
+        return _observation
 
     def step(self, _action):
-        _observation, _reward, _terminated, _truncated, _info_vector = self._env.step(_action)
+        _observation, _reward, _terminated, _truncated, info = self._env.step(_action)
 
         self._reward.append(_reward)
         _done = _terminated or _truncated
 
-        return _observation, _reward, _done, _info_vector
+        _info = None
+        if _done:
+            _info = {
+                "reward": sum(self._reward),
+                "length": len(self._reward),
+                "success": bool(info.get("success", False)) if isinstance(info, dict) else False,
+            }
+        return _observation, _reward, _done, _info
 
     def render(self):
         self._env.render()
-        time.sleep(0.05)
+        time.sleep(0.1)
 
     def close(self):
         self._env.close()
@@ -45,29 +57,30 @@ class DynamicObstacleEnvWrapper:
 if __name__ == "__main__":
     import numpy as np
     env = DynamicObstacleEnvWrapper(render_mode='human')
-    observation, info_vector = env.reset()
-    print(f'Initial observation: {observation}')
-    print(f'Observation space: {env.observation_space}')
+    observation = env.reset()
+    print(f'初始观测 : {observation}')
+    print(f'观测空间 : {env.observation_space}')
     print(env.action_space.shape)
-    print(f'Action space: {env.action_space}')
-    print(f'Max episode steps: {env.max_episode_steps}')
+    print(f'动作空间 : {env.action_space}')
+    print(f'最大回合步数 : {env.max_episode_steps}')
 
     done = False
     info = None
     step_count = 0
 
-    while not done:
+    while not False:
         action = np.clip(env.action_space.sample(), -1, 1)
         print(action)
         a = np.array([-1, -1], dtype=np.float32)
-        next_observation, reward, done, info_vector = env.step(action)
+        next_observation, reward, done, info = env.step(action)
         step_count += 1
 
-        print(f'Step {step_count}:')
-        print(f'  Action: {action}')
-        print(f'  Observation: {next_observation}')
-        print(f'  Reward: {reward}')
-        print(f'  Info vector: {info_vector}')
+        print(f'步骤 {step_count}:')
+        print(f'  动作 : {action}')
+        print(f'  观测 : {next_observation}')
+        print(f'  奖励 : {reward}')
+        if info:
+            print(f'  回合信息: {info}')
 
         env.render()
     env.close()

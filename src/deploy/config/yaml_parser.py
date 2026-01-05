@@ -12,8 +12,3 @@ class YamlParser:
 
     def get_config(self):
         return self._config
-
-
-if __name__ == "__main__":
-    config = YamlParser(path='pusher.yaml').get_config()
-    print(config)

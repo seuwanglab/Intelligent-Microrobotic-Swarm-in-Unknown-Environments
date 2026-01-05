@@ -87,9 +87,9 @@ class PPO(nn.Module):
 
     def forward(self, observation, memory, memory_indices, mask):
         h = self.embedding_layer(observation)
-        h, memory, attention_list = self.transformer(h, memory, memory_indices, mask)
+        h, memory = self.transformer(h, memory, memory_indices, mask)
         mean = self.policy_head(h)
         std = torch.exp(self.policy_log_std.clamp(min=self.min_log_std).expand_as(mean))
         pi = _Normal(mean, std)
         value = self.value_head(h).reshape(-1)
-        return pi, value, memory, attention_list
+        return pi, value, memory

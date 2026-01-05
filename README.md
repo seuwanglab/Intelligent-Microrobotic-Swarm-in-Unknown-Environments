@@ -109,7 +109,7 @@ conda activate microrobotic_swarm
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia -y
 
 # Install other dependencies
-pip install gymnasium numpy pyyaml tensorboard pygame
+pip install gymnasium numpy pyyaml tensorboard pygame pandas matplotlib tqdm opencv-python scipy
 ```
 
 ### 2. Training
